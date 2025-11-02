@@ -16,4 +16,7 @@ suppressPackageStartupMessages(library(tidyverse))
 
 ```{r data}
 insurance <- read_delim("data/raw/HealthInsurance.csv")
+
+insurance <- insurance %>% 
+  mutate(across(where(is.character), as.factor))
 ```

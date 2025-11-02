@@ -36,6 +36,7 @@ insurance <- insurance %>%
   mutate(education = education %>% factor(levels = c("none", "ged", "highschool", "bachelor", "master", "phd", "other")))
 ```
 
+
 ```{r}
 #Переименовывание переменных на русский язык
 
@@ -260,4 +261,273 @@ plot1 <- hist_fn(age, 100)
 plot2 <- hist_fn(family, 400)
 
 plot1 / plot2
+```
+
+
+```{r}
+ggplot(data = insurance, aes(x = age, fill = insurance)) +
+  geom_density(alpha = 0.5, adjust = 1.2) +
+  theme_minimal()
+```
+```{r}
+ggplot(insurance, aes(x = insurance, y = age, fill = insurance)) +
+  geom_violin(trim = FALSE, alpha = 0.5) +
+  geom_boxplot(width = 0.15, outlier.shape = NA, color = "black") +
+  labs(
+    title = "Возраст в зависимости по наличию страховки: violin + box",
+    x = "Наличие страховки",
+    y = "Возраст (лет)"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+
+```{r}
+sum_age <- insurance %>%
+  group_by(insurance) %>%
+  summarise(
+    n = sum(!is.na(age)),
+    mean = mean(age, na.rm = TRUE),
+    sd = sd(age, na.rm = TRUE),
+    se = sd/sqrt(n),
+    t = qt(0.975, df = n - 1),
+    low = mean - t*se,
+    up  = mean + t*se,
+    .groups = "drop"
+  )
+
+ggplot(sum_age, aes(x = insurance, y = mean)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = low, ymax = up), width = 0.15) +
+  labs(title = "Среднее ± 95% ДИ: возраст",
+       x = "Страховка", y = "Возраст (лет)") +
+  theme_minimal()
+```
+
+
+
+# t-тест для возраста
+```{r}
+# мера ассоциации - разница средних
+# инструмент оценки стат. значимости  - t- тест
+
+# Выполняем t-критерий для независимых выборок: возраст в зависимости от наличия страховки
+t_test_age <- t.test(age ~ insurance, data = insurance, var.equal = TRUE)
+
+# Выводим результаты
+cat("### t-критерий для независимых выборок: Возраст в зависимости от наличия страховки\n")
+print(t_test_age)
+
+
+```
+```{r}
+ggplot(data = insurance, aes(x = family, fill = insurance)) +
+  geom_density(alpha = 0.5, adjust = 1.2) +
+  theme_minimal()
+```
+```{r}
+ggplot(data = insurance, aes(x = family, fill = insurance)) +
+  geom_bar(alpha = 0.5, adjust = 1.2) +
+  theme_minimal()
+```
+
+
+# t-тест для размера семьи
+```{r}
+# Выполняем t-критерий для независимых выборок: размер семьи в зависимости от наличия страховки
+t_test_family <- t.test(family ~ insurance, data = insurance, var.equal = TRUE)
+
+# Выводим результаты в консоль
+cat("### t-критерий для независимых выборок: размер семьи в зависимости от наличия страховки")
+print(t_test_family)
+
+```
+```{r}
+insurance %>% filter (gender == "male" & insurance == "yes") %>% count()
+
+```
+### Ассоциация между страховкой и половой принадлежностью
+ 
+
+```{r}
+library(epitools)
+
+
+cont_table_2x2 <- matrix(
+  c(3598, 1035,  # male:   yes, no
+    3454,  715), # female: yes, no
+  nrow = 2, byrow = TRUE,
+  dimnames = list(
+    sex = c("male", "female"),
+    insurance = c("yes", "no")
+  )
+)
+
+# RR (male vs female)
+riskratio(cont_table_2x2, rev = "neither")
+
+# хи-квадрат и доли рисков по строкам
+chisq.test(cont_table_2x2)
+round(prop.table(cont_table_2x2, 1), 3)
+```
+
+
+
+```{r}
+# альтернативно: можно напрямую передать в chisq.test()
+chisq.test(df$insurance, df$gender)
+```
+### Ассоциация между страховкой и семейным статусом
+
+
+```{r}
+library(epitools)
+
+# фиксируем порядок уровней
+insurance$married   <- factor(insurance$married,   levels = c("yes","no"))
+insurance$insurance <- factor(insurance$insurance, levels = c("yes","no"))
+
+#  частоты
+tab <- table(insurance$married, insurance$insurance)
+
+# матрица 2x2 в формате (rows: married yes/no; cols: insurance yes/no)
+cont_table_2x2 <- matrix(
+  c(tab["yes","yes"], tab["yes","no"],
+    tab["no","yes"],  tab["no","no"]),
+  nrow = 2, byrow = TRUE,
+  dimnames = list(
+    married   = c("yes", "no"),
+    insurance = c("yes", "no")
+  )
+)
+
+cont_table_2x2
+
+# RR (married vs not married)
+riskratio(cont_table_2x2, rev = "neither")
+
+# χ² и доли по строкам
+chisq.test(cont_table_2x2)
+round(prop.table(cont_table_2x2, 1), 3)
+```
+
+### Ассоциация между страховкой и самозанятостью
+```{r}
+# Создаем таблицу сопряженности
+cont_table_2x2 <- table(insurance$insurance, insurance$selfemp)
+print(cont_table_2x2)
+
+# H0: признаки независимы
+# H1: признаки зависимы
+
+chisq_2x2 <- chisq.test(cont_table_2x2)
+print(chisq_2x2)
+```
+
+
+```{r}
+library(epitools)
+
+# фиксируем порядок уровней
+insurance$selfemp   <- factor(insurance$selfemp,   levels = c("yes","no"))
+insurance$insurance <- factor(insurance$insurance, levels = c("yes","no"))
+
+# частоты и матрица 2×2:
+tab <- table(insurance$selfemp, insurance$insurance)
+cont_table_2x2 <- matrix(
+  c(tab["yes","yes"], tab["yes","no"],
+    tab["no","yes"],  tab["no","no"]),
+  nrow = 2, byrow = TRUE,
+  dimnames = list(
+    selfemp   = c("yes","no"),
+    insurance = c("yes","no")
+  )
+)
+print(cont_table_2x2)
+
+# RR (self-employed vs not self-employed)
+riskratio(cont_table_2x2, rev = "neither")
+
+# χ²-тест и доли по строкам
+chisq.test(cont_table_2x2)
+round(prop.table(cont_table_2x2, 1), 3)
+```
+
+
+
+### Ассоциация между страховкой и "общим здоровьем"
+
+
+```{r}
+cont_table_2x2 <- table(insurance$insurance, insurance$health)
+print(cont_table_2x2)
+
+# H0: признаки независимы
+# H1: признаки зависимы
+
+chisq_2x2 <- chisq.test(cont_table_2x2)
+print(chisq_2x2)
+```
+```{r}
+
+```
+
+
+
+### Ассоциация между страховкой и лимитом
+
+```{r}
+# Создаем таблицу сопряженности
+cont_table_2x2 <- table(insurance$insurance, insurance$limit)
+print(cont_table_2x2)
+
+
+# H0: признаки независимы
+# H1: признаки зависимы
+
+chisq_2x2 <- chisq.test(cont_table_2x2)
+print(chisq_2x2)
+```
+
+### Ассоциация между страховкой и образованием
+```{r}
+# Создаем таблицу сопряженности
+cont_table <- table(insurance$insurance, insurance$education)
+print(cont_table)
+
+# H0: признаки независимы
+# H1: признаки зависимы
+
+chisq_res <- chisq.test(cont_table)
+print(chisq_res)
+
+```
+
+### Ассоциация между страховкой и регионом
+
+```{r}
+# Создаем таблицу сопряженности
+cont_table <- table(insurance$insurance, insurance$region)
+print(cont_table)
+
+# H0: признаки независимы
+# H1: признаки зависимы
+
+chisq_res <- chisq.test(cont_table)
+print(chisq_res)
+
+```
+### Ассоциация между страховкой и этнической принадлежностью 
+
+```{r}
+# Создаем таблицу сопряженности
+cont_table <- table(insurance$insurance, insurance$ethnicity)
+print(cont_table)
+
+# H0: признаки независимы
+# H1: признаки зависимы
+
+chisq_res <- chisq.test(cont_table)
+print(chisq_res)
 ```

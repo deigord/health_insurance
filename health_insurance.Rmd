@@ -1,6 +1,6 @@
 ---
 title: "health_insurance"
-author: "Alexey Gordeev"
+author: "Бектур Бердибеков, Алексей Гордеев, София Ризатдинова"
 date: "`r Sys.Date()`"
 output: html_document
 ---
@@ -80,7 +80,8 @@ output_for_categorical_variables <- insurance %>%
   ) %>%
   flextable() %>% 
   theme_apa() %>% 
-  merge_v(j=1)
+  merge_v(j=1) %>% 
+  autofit()
 
 output_for_categorical_variables
 
@@ -376,7 +377,7 @@ round(prop.table(cont_table_2x2, 1), 3)
 
 ```{r}
 # альтернативно: можно напрямую передать в chisq.test()
-chisq.test(df$insurance, df$gender)
+chisq.test(insurance$insurance, insurance$gender)
 ```
 ### Ассоциация между страховкой и семейным статусом
 

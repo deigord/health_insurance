@@ -22,22 +22,13 @@ insurance <- insurance %>%
 ```
 
 
-# Загрузка данных
-```{r}
-insurance <- read.csv("data/raw/HealthInsurance.csv")
-
-```
 
 ```{r}
-library(ggplot2)
-
 ggplot(data = insurance, aes(x = age, fill = insurance)) +
   geom_density(alpha = 0.5, adjust = 1.2) +
   theme_minimal()
 ```
 ```{r}
-library(ggplot2)
-
 ggplot(insurance, aes(x = insurance, y = age, fill = insurance)) +
   geom_violin(trim = FALSE, alpha = 0.5) +
   geom_boxplot(width = 0.15, outlier.shape = NA, color = "black") +
@@ -52,9 +43,6 @@ ggplot(insurance, aes(x = insurance, y = age, fill = insurance)) +
 
 
 ```{r}
-library(dplyr)
-library(ggplot2)
-
 sum_age <- insurance %>%
   group_by(insurance) %>%
   summarise(

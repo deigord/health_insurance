@@ -32,12 +32,11 @@ table(insurance$education)
 #Смена типа переменных с character на factor
 
 insurance <- insurance %>% 
-visualization
   mutate(across(where(is.character), as.factor)) %>% 
   mutate(education = education %>% factor(levels = c("none", "ged", "highschool", "bachelor", "master", "phd", "other")))
 ```
 
-```
+```{r}
 #Переименовывание переменных на русский язык
 
 # insurance <- insurance %>%
@@ -79,6 +78,7 @@ output_for_categorical_variables <- insurance %>%
     `Процент от общего количества` = percentage
   ) %>%
   flextable() %>% 
+  theme_apa() %>% 
   merge_v(j=1)
 
 output_for_categorical_variables
@@ -108,9 +108,16 @@ output_for_numerical_variables <- insurance %>%
     `Максимальное значение` = max,
     `Квантиль 1` = q1,
     `Квантиль 3` = q3
-  )
+  ) %>% 
+  flextable() %>% 
+  theme_apa()
 
 ```
+
+```{r}
+output_for_numerical_variables
+```
+
 
 # Распределение значений признаков
 

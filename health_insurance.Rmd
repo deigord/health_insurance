@@ -17,9 +17,11 @@ library(patchwork)
 
 ```{r data}
 insurance <- read_delim("data/raw/HealthInsurance.csv")
+table(insurance$education)
 
 insurance <- insurance %>% 
-  mutate(across(where(is.character), as.factor))
+  mutate(across(where(is.character), as.factor)) %>% 
+  mutate(education = education %>% factor(levels = c("none", "ged", "highschool", "bachelor", "master", "phd", "other")))
 ```
 
 
@@ -114,7 +116,7 @@ barplot_fn_ins <- function(col) {
     labs(title = label,
          y = "proportion",
          x = "insurance") +
-    scale_fill_discrete(name = rlang::englue("{{col}}"))
+    scale_fill_brewer(name = rlang::englue("{{col}}"), palette = "RdYlBu")
 }
 
 col_list <- insurance %>%
@@ -151,6 +153,7 @@ hist_fn <- function(col, width) {
        subtitle = "by insurance",
        y = "Quantity",
        x = rlang::englue("{{col}}")) +
+    scale_fill_brewer(name = rlang::englue("{{col}}"), palette = "RdYlBu") +
   theme(plot.title = element_text(hjust = 0.5),
         axis.title = element_text(size = 25),
         axis.text.y = element_text(size = 23),

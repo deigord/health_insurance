@@ -10,18 +10,258 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(readr)
 suppressPackageStartupMessages(library(tidyverse))
+library(patchwork)
+library(flextable)
 ```
 
 # Чтение датасета
 
+
 ```{r data}
 insurance <- read_delim("data/raw/HealthInsurance.csv")
+table(insurance$education)
+
+#Просмотр датасета
+
+#view(insurance)
+
+#Проверка датасета на наличие отсутствующих данных
+
+#colSums(is.na(insurance))
+
+#Смена типа переменных с character на factor
 
 insurance <- insurance %>% 
   mutate(across(where(is.character), as.factor)) %>% 
   mutate(education = education %>% factor(levels = c("none", "ged", "highschool", "bachelor", "master", "phd", "other")))
 ```
 
+
+```{r}
+#Переименовывание переменных на русский язык
+
+# insurance <- insurance %>%
+#   rename(
+#     `Идентификационный номер` = rownames,
+#     `Статус здоровья` = health,
+#     `Возраст` = age,
+#     `Ограничения` = limit,
+#     `Пол` = gender,
+#     `Медицинская страховка` = insurance,
+#     `Семейный статус: замужем / женат` = married,
+#     `Самозанятость` = selfemp,
+#     `Количество членов семьи` = family,
+#     `Регион проживания` = region,
+#     `Национальность` = ethnicity,
+#     `Образование` = education
+#   )
+
+#Присваивание лейблов
+
+#Описательные статистики для категориальнх переменных
+
+#summary(insurance)
+
+output_for_categorical_variables <- insurance %>%
+  select(where(is.factor)) %>% #Выбираем только качественные данные
+  pivot_longer(cols = everything(), names_to = "variable", values_to = "category") %>%
+  group_by(variable, category) %>% #Группируем данные
+  summarise(count = n(), .groups = "drop") %>%
+  group_by(variable) %>%
+  mutate(total = sum(count),
+         percentage = round(count / total * 100, 2)) %>%
+  #ungroup() %>%
+  select(variable, category, count, percentage) %>%
+  rename(
+    Признак = variable,
+    Группа = category,
+    `Количество людей` = count,
+    `Процент от общего количества` = percentage
+  ) %>%
+  flextable() %>% 
+  theme_apa() %>% 
+  merge_v(j=1)
+
+output_for_categorical_variables
+
+#Описательные статистики для количественных переменных
+output_for_numerical_variables <- insurance %>%
+  select("age", "family") %>% #Выбираем только количественные данные
+    summarise(across(everything(), 
+                     list(
+    mean = ~ round(mean(.x), 2), #Округляем до сотых
+    median = ~ median(.x),
+    sd = ~ round(sd(.x), 2), #Округляем до сотых
+    min = ~ min(.x),
+    max = ~ max(.x),
+    q1 = ~ quantile(.x, 0.25),
+    q3 = ~ quantile(.x, 0.75)
+  ), .names = "{col}_{fn}")) %>% #Считаем статистики, выводим их в формате "имя переменной_название статистики"
+  pivot_longer(everything(), names_to = "variable_statistics", values_to = "value") %>% #Переводим данные в длинный формат, чтобы затем разделить первый столбик на два отдельных с именем переменной и названием статистики
+  separate(variable_statistics, into = c("variable", "statistics"), sep = "_") %>%
+  pivot_wider(names_from = statistics, values_from = value) %>% #возвращаем всё в широкий формат, чтобы данные были сгруппированы по имени переменной
+  rename(
+    `Переменная` = variable,
+    `Среднее значение` = mean,
+    `Медиана` = median,
+    `Стандартное отклонение` = sd,
+    `Минимальное значение` = min,
+    `Максимальное значение` = max,
+    `Квантиль 1` = q1,
+    `Квантиль 3` = q3
+  ) %>% 
+  flextable() %>% 
+  theme_apa()
+
+```
+
+```{r}
+output_for_numerical_variables
+```
+
+
+# Распределение значений признаков
+
+## Номинативные переменные
+
+```{r, fig.width=7, fig.height=50, dpi=300}
+theme_plots <- theme_classic() +
+  theme(plot.title = element_text(size = 23, hjust = 0.5),
+    plot.subtitle = element_text(size = 20, hjust = 0.5),
+    axis.title = element_text(size = 20),
+    axis.text.y = element_text(size = 18),
+    axis.text.x = element_text(size = 18),
+    legend.title = element_text(size = 20),
+    legend.text = element_text(size = 18),
+    strip.text = element_text(size = 20)) 
+theme_set(theme_plots)
+
+# barplots function
+barplot_fn <- function(col) {
+  label <- rlang::englue("Barplot of {{col}} variable\nwith proportion")
+  insurance %>% 
+  ggplot() +
+    geom_bar(aes(x = "", fill = {{col}}),
+             position = "fill", width = 0.5) +
+    labs(title = label,
+         y = "Proportion",
+         x = rlang::englue("{{col}}")) +
+    scale_fill_brewer(name = rlang::englue("{{col}}"), palette = "RdYlBu")
+}
+
+col_list <- insurance %>%
+  select(where(is.factor)) %>%
+  names() %>%
+  syms()
+
+bar_plots <- purrr::map(col_list,
+    ~ barplot_fn(!!.x))
+
+wrap_plots(bar_plots, ncol = 1)
+```
+
+## Количественные переменные
+
+```{r, fig.width=12, fig.height=12, dpi=300}
+hist_fn <- function(col, width) {
+  
+  ggplot(insurance, aes(x = {{col}})) +
+  geom_boxplot(
+    alpha = 0.5,
+    width = width,
+    linewidth = 1.5,
+    outlier.size = 2
+  ) +
+  geom_histogram(
+    fill = "mediumpurple3",
+    alpha = 0.5,
+    colour = "black",
+    bins = 25
+  ) +
+  labs(title = rlang::englue("Histogram of the distribution of variable {{col}}\nand boxplot with median and IQR"),
+       y = "Quantity",
+       x = rlang::englue("{{col}}")) +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.title = element_text(size = 25),
+        axis.text.y = element_text(size = 23),
+        axis.text.x = element_text(size = 23),
+        legend.title = element_text(size = 23),
+        legend.text = element_text(size = 23))
+}
+
+plot1 <- hist_fn(age, 100)
+plot2 <- hist_fn(family, 400)
+
+plot1 / plot2
+```
+
+
+# Визуальная оценка взаимосвязи
+
+## Номинативные переменные
+
+```{r, fig.width=7, fig.height=50, dpi=300}
+# barplots function
+barplot_fn_ins <- function(col) {
+  label <- rlang::englue("Barplot of {{col}} variable\nwith proportion by insurance")
+  insurance %>% 
+  ggplot() +
+    geom_bar(aes(x = insurance, fill = {{col}}),
+             position = "fill", width = 0.5) +
+    labs(title = label,
+         y = "proportion",
+         x = "insurance") +
+    scale_fill_brewer(name = rlang::englue("{{col}}"), palette = "RdYlBu")
+}
+
+col_list <- insurance %>%
+  select(where(is.factor), -insurance) %>%
+  names() %>%
+  syms()
+
+bar_plots_ins <- purrr::map(col_list,
+    ~ barplot_fn_ins(!!.x))
+
+wrap_plots(bar_plots_ins, ncol = 1)
+```
+
+## Количественные переменные
+
+```{r, fig.width=12, fig.height=12, dpi=300}
+hist_fn <- function(col, width) {
+  
+  ggplot(insurance, aes(x = {{col}}, fill = insurance)) +
+  geom_boxplot(
+    alpha = 0.5,
+    width = width,
+    linewidth = 1.5,
+    outlier.size = 2,
+    show.legend = FALSE
+  ) +
+  geom_histogram(
+    alpha = 0.5,
+    colour = "black",
+    bins = 25
+  ) +
+    facet_wrap(~insurance) +
+  labs(title = rlang::englue("Histogram of the distribution of variable {{col}}\nand boxplot with median and IQR"),
+       subtitle = "by insurance",
+       y = "Quantity",
+       x = rlang::englue("{{col}}")) +
+    scale_fill_brewer(name = rlang::englue("{{col}}"), palette = "RdYlBu") +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.title = element_text(size = 25),
+        axis.text.y = element_text(size = 23),
+        axis.text.x = element_text(size = 23),
+        legend.title = element_text(size = 23),
+        legend.text = element_text(size = 23))
+}
+
+plot1 <- hist_fn(age, 100)
+plot2 <- hist_fn(family, 400)
+
+plot1 / plot2
+```
 
 
 ```{r}
@@ -291,33 +531,3 @@ print(cont_table)
 chisq_res <- chisq.test(cont_table)
 print(chisq_res)
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

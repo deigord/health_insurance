@@ -18,7 +18,8 @@ suppressPackageStartupMessages(library(tidyverse))
 insurance <- read_delim("data/raw/HealthInsurance.csv")
 
 insurance <- insurance %>% 
-  mutate(across(where(is.character), as.factor))
+  mutate(across(where(is.character), as.factor)) %>% 
+  mutate(education = education %>% factor(levels = c("none", "ged", "highschool", "bachelor", "master", "phd", "other")))
 ```
 
 

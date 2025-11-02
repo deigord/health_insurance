@@ -12,6 +12,7 @@ library(readr)
 suppressPackageStartupMessages(library(tidyverse))
 library(patchwork)
 library(flextable)
+library(epitools)
 ```
 
 # Чтение датасета
